@@ -1,0 +1,76 @@
+plugins {
+    id 'kr.entree.spigradle' version '2.4.2'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'java'
+}
+
+group = project.property("group")
+version = project.property("version")
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    spigot()
+    maven {
+        name = 'spigotmc-repo'
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+    maven {
+        name = 'sonatype'
+        url = 'https://oss.sonatype.org/content/groups/public/'
+    }
+}
+
+dependencies {
+    implementation 'org.bstats:bstats-bukkit:3.0.0'
+    compileOnly spigot(project.property("spigotApiVersion"))
+}
+
+spigot {
+    name = project.property("pluginName")
+    authors = project.property("authors").split("\\s*,\\s*")
+    apiVersion = project.property("spigotApiVersion")
+    load = STARTUP
+    debug {
+        eula = true
+        buildVersion = project.property("mcVersion")
+    }
+}
+
+shadowJar {
+    //archiveClassifier.set("")
+    relocate 'org.bstats', 'dev.chaws.xaeros.map.spigot'
+}
+
+def targetJavaVersion = 17
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        options.release = targetJavaVersion
+    }
+}
+
+tasks {
+    assemble.dependsOn(shadowJar)
+}
+
+// Not sure why this is needed to debug
+// https://github.com/spigradle/spigradle/issues/84
+//tasks.withType(Copy).all { duplicatesStrategy 'exclude' }
+
+processResources {
+    def props = [version: version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
