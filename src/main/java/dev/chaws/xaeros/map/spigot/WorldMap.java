@@ -1,32 +1,36 @@
 package dev.chaws.xaeros.map.spigot;
 
+import com.google.common.io.ByteStreams;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.messaging.PluginMessageListener;
-import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Logger;
 
-public class WorldMap extends JavaPlugin implements PluginMessageListener {
-	public static WorldMap instance;
+public class WorldMap extends JavaPlugin implements Listener {
+	private static final String channel = "xaeroworldmap:main";
+
 	public static Logger log;
+
+	private int worldId;
 
 	@Override
 	public void onEnable() {
 		log = getLogger();
-		instance = this;
+		this.worldId = this.initializeWorldId();
 
-		log.info("Xaeros WorldMap enabled.");
-		var worldId = this.getWorldId();
-		log.info("Found world id: " + worldId);
-
-		// https://www.spigotmc.org/wiki/bukkit-bungee-plugin-messaging-channel/
-		this.getServer().getMessenger().registerOutgoingPluginChannel(this, "xaeroworldmap:main");
-		this.getServer().getMessenger().registerIncomingPluginChannel(this, "xaeroworldmap:main", this);
+		this.getServer().getMessenger().registerOutgoingPluginChannel(this, channel);
+		this.getServer().getPluginManager().registerEvents(this, this);
 
 		try {
 			new Metrics(this, 16554);
@@ -35,16 +39,33 @@ public class WorldMap extends JavaPlugin implements PluginMessageListener {
 
 	public void onDisable() {
 		this.getServer().getMessenger().unregisterOutgoingPluginChannel(this);
-		this.getServer().getMessenger().unregisterIncomingPluginChannel(this);
-		log.info("Xaeros WorldMap disabled.");
 	}
 
-	@Override
-	public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
-		log.info("Message Received on channel " + channel + " for player " + player.getDisplayName());
+	@EventHandler
+	public void onPlayerJoin(PlayerJoinEvent event) {
+		// Needs to be run in the future to ensure the mod has loaded on the client
+		// Otherwise the packet doesn't get picked up by the mod.
+		// Might want to make the ticks configurable in the future to allow
+		// for tweaking the value for slower clients
+		this.getServer().getScheduler().runTaskLater(this, () -> {
+			sendPlayerWorldId(event.getPlayer());
+		}, 60);
 	}
 
-	private int getWorldId() {
+	@EventHandler
+	public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+		sendPlayerWorldId(event.getPlayer());
+	}
+
+	private void sendPlayerWorldId(Player player) {
+		var bytes = ByteStreams.newDataOutput();
+		bytes.writeByte(0);
+		bytes.writeInt(this.worldId);
+
+		player.sendPluginMessage(this, channel, bytes.toByteArray());
+	}
+
+	private int initializeWorldId() {
 		try {
 			var worldFolder = getServer().getWorldContainer().getCanonicalPath();
 			var xaeromapFile = new File(worldFolder + File.separator + "xaeromap.txt");
