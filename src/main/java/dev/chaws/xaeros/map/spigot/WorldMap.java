@@ -6,7 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.BufferedReader;
@@ -41,15 +41,16 @@ public class WorldMap extends JavaPlugin implements Listener {
 		this.getServer().getMessenger().unregisterOutgoingPluginChannel(this);
 	}
 
+	// Use PlayerRegisterChannelEvent instead of PlayerLoginEvent because
+	// the client mod might not have registered to events on the channel yet
+	// so the packet won't get picked up by the mod.
 	@EventHandler
-	public void onPlayerJoin(PlayerJoinEvent event) {
-		// Needs to be run in the future to ensure the mod has loaded on the client
-		// Otherwise the packet doesn't get picked up by the mod.
-		// Might want to make the ticks configurable in the future to allow
-		// for tweaking the value for slower clients
-		this.getServer().getScheduler().runTaskLater(this, () -> {
-			sendPlayerWorldId(event.getPlayer());
-		}, 60);
+	public void onPlayerRegisterChannel(PlayerRegisterChannelEvent event) {
+		if (!event.getChannel().equals(channel)) {
+			return;
+		}
+
+		sendPlayerWorldId(event.getPlayer());
 	}
 
 	@EventHandler
