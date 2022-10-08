@@ -39,7 +39,7 @@ spigot {
 
 shadowJar {
     //archiveClassifier.set("")
-    relocate 'org.bstats', 'dev.chaws.xaeros.map.spigot'
+    relocate 'org.bstats', 'dev.chaws.xaero.map.spigot'
 }
 
 def targetJavaVersion = 17

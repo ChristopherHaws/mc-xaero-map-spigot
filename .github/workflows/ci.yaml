@@ -53,5 +53,5 @@ jobs:
       - name: Archive plugin jars on GitHub
         uses: actions/upload-artifact@v3
         with:
-          name: XaerosWorldMapSpigot
+          name: xaero-map-spigot
           path: build/libs

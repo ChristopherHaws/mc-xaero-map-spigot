@@ -1,4 +1,4 @@
-package dev.chaws.xaeros.map.spigot;
+package dev.chaws.xaero.map.spigot;
 
 import com.google.common.io.ByteStreams;
 import org.bstats.bukkit.Metrics;
@@ -17,19 +17,21 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Logger;
 
-public class WorldMap extends JavaPlugin implements Listener {
-	private static final String channel = "xaeroworldmap:main";
+public class XaeroMapPlugin extends JavaPlugin implements Listener {
+	private static final String worldmapChannel = "xaeroworldmap:main";
+	private static final String minimapChannel = "xaerominimap:main";
 
 	public static Logger log;
 
-	private int worldId;
+	private int serverLevelId;
 
 	@Override
 	public void onEnable() {
 		log = getLogger();
-		this.worldId = this.initializeWorldId();
+		this.serverLevelId = this.initializeServerLevelId();
 
-		this.getServer().getMessenger().registerOutgoingPluginChannel(this, channel);
+		this.getServer().getMessenger().registerOutgoingPluginChannel(this, worldmapChannel);
+		this.getServer().getMessenger().registerOutgoingPluginChannel(this, minimapChannel);
 		this.getServer().getPluginManager().registerEvents(this, this);
 
 		try {
@@ -46,27 +48,31 @@ public class WorldMap extends JavaPlugin implements Listener {
 	// so the packet won't get picked up by the mod.
 	@EventHandler
 	public void onPlayerRegisterChannel(PlayerRegisterChannelEvent event) {
-		if (!event.getChannel().equals(channel)) {
+		var channel = event.getChannel();
+		if (!channel.equals(worldmapChannel) &&
+			!channel.equals(minimapChannel)) {
 			return;
 		}
 
-		sendPlayerWorldId(event.getPlayer());
+		this.sendPlayerWorldId(event.getPlayer(), channel);
 	}
 
 	@EventHandler
 	public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-		sendPlayerWorldId(event.getPlayer());
+		var player = event.getPlayer();
+		this.sendPlayerWorldId(player, worldmapChannel);
+		this.sendPlayerWorldId(player, minimapChannel);
 	}
 
-	private void sendPlayerWorldId(Player player) {
+	private void sendPlayerWorldId(Player player, String channel) {
 		var bytes = ByteStreams.newDataOutput();
 		bytes.writeByte(0);
-		bytes.writeInt(this.worldId);
+		bytes.writeInt(this.serverLevelId);
 
 		player.sendPluginMessage(this, channel, bytes.toByteArray());
 	}
 
-	private int initializeWorldId() {
+	private int initializeServerLevelId() {
 		try {
 			var worldFolder = getServer().getWorldContainer().getCanonicalPath();
 			var xaeromapFile = new File(worldFolder + File.separator + "xaeromap.txt");
@@ -83,8 +89,9 @@ public class WorldMap extends JavaPlugin implements Listener {
 					log.warning("Failed to create xaeromap.txt: " + ex);
 				}
 			} else {
-				try (var fr = new FileReader(xaeromapFile); var br = new BufferedReader(fr)) {
-					var line = br.readLine();
+				try (var fileReader = new FileReader(xaeromapFile);
+					 var bufferedReader = new BufferedReader(fileReader)) {
+					var line = bufferedReader.readLine();
 					var args = line.split(":");
 					if (!Objects.equals(args[0], "id")) {
 						throw new Exception("Failed to read id from xaeromap.txt");
